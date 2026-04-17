@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Stable Diffusion v1.5 — веб-панель генерации изображений по текстовому описанию" />
+  <meta name="robots" content="noindex" />
+  <title>DreamForge — AI Image Generator</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+<!-- Background orbs -->
+<div class="bg-orbs" aria-hidden="true">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<div class="app-wrapper">
+
+  <!-- ══════════ HEADER ══════════ -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-icon" aria-hidden="true">✦</div>
+      <span class="logo-text">Dream<span>Forge</span></span>
+    </div>
+
+    <div class="status-badge" id="statusBadge" role="status" aria-live="polite">
+      <div class="status-dot loading" id="statusDot"></div>
+      <span id="statusText">Загрузка модели...</span>
+    </div>
+  </header>
+
+  <!-- ══════════ MAIN ══════════ -->
+  <main class="main-content">
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar" aria-label="Параметры генерации">
+
+      <!-- Prompt -->
+      <div class="card">
+        <div class="card-title">Описание</div>
+
+        <label for="promptInput">Что хотите сгенерировать?</label>
+        <textarea
+          id="promptInput"
+          placeholder="A futuristic city at sunset, cinematic lighting, 4k, ultra detailed..."
+          aria-label="Текстовый промпт"
+        ></textarea>
+
+        <label for="negativeInput" style="margin-top: 12px;">Негативный промпт</label>
+        <textarea
+          id="negativeInput"
+          style="min-height: 60px;"
+          placeholder="blurry, bad anatomy, bad hands, ugly..."
+          aria-label="Негативный промпт"
+        >blurry, bad anatomy, bad hands, extra limbs, deformed, ugly, lowres, text, watermark</textarea>
+      </div>
+
+      <!-- Size -->
+      <div class="card">
+        <div class="card-title">Размер</div>
+        <div class="size-grid" role="group" aria-label="Выбор размера изображения">
+          <button class="size-btn active" data-w="512" data-h="512" id="size-512x512">512 × 512</button>
+          <button class="size-btn" data-w="768" data-h="512" id="size-768x512">768 × 512</button>
+          <button class="size-btn" data-w="512" data-h="768" id="size-512x768">512 × 768</button>
+          <button class="size-btn" data-w="640" data-h="512" id="size-640x512">640 × 512</button>
+          <button class="size-btn" data-w="704" data-h="512" id="size-704x512">704 × 512</button>
+          <button class="size-btn" data-w="768" data-h="768" id="size-768x768">768 × 768</button>
+        </div>
+      </div>
+
+      <!-- Parameters -->
+      <div class="card">
+        <div class="card-title">Параметры</div>
+
+        <div class="range-wrap">
+          <div class="range-header">
+            <span class="range-label">Шаги (Steps)</span>
+            <span class="range-value" id="stepsVal">25</span>
+          </div>
+          <input type="range" id="stepsRange" min="1" max="50" value="25"
+                 aria-label="Количество шагов генерации" />
+        </div>
+
+        <div class="range-wrap" style="margin-top: 14px;">
+          <div class="range-header">
+            <span class="range-label">CFG Scale</span>
+            <span class="range-value" id="cfgVal">7.5</span>
+          </div>
+          <input type="range" id="cfgRange" min="1" max="20" step="0.5" value="7.5"
+                 aria-label="CFG масштаб" />
+        </div>
+      </div>
+
+      <!-- Seed -->
+      <div class="card">
+        <div class="card-title">Сид (Seed)</div>
+        <div class="seed-row">
+          <div>
+            <label for="seedInput">-1 = случайный</label>
+            <input type="number" id="seedInput" value="-1" min="-1" max="2147483647"
+                   aria-label="Seed для генерации" />
+          </div>
+          <button class="btn-random" id="randomSeedBtn" title="Случайный seed" aria-label="Случайный seed">
+            🎲
+          </button>
+        </div>
+      </div>
+
+      <!-- Generate -->
+      <button class="btn-generate" id="generateBtn" disabled
+              aria-label="Сгенерировать изображение">
+        <span class="btn-icon">✦</span>
+        <span id="generateBtnText">Ожидание модели...</span>
+      </button>
+
+    </aside>
+
+    <!-- ── GALLERY ── -->
+    <section class="gallery-area" aria-label="Галерея сгенерированных изображений" id="galleryArea">
+
+      <!-- Progress card -->
+      <div class="progress-card" id="progressCard" aria-live="assertive">
+        <div class="spinner-ring" aria-hidden="true"></div>
+        <span class="progress-label" id="progressLabel">Генерация изображения...</span>
+        <div class="progress-bar-track" style="width: 100%;" role="progressbar" aria-label="Прогресс генерации">
+          <div class="progress-bar-fill" id="progressFill"></div>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon" aria-hidden="true">🎨</div>
+        <h2>Ваши шедевры появятся здесь</h2>
+        <p>Введите описание в поле слева и нажмите <strong>Сгенерировать</strong></p>
+      </div>
+
+    </section>
+
+  </main>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>
