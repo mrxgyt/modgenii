@@ -1,6 +1,6 @@
 # ─────────────────────────────────────────────────────────────
 # Dockerfile — DreamForge (Stable Diffusion v1.5 Web Panel)
-# Base: NVIDIA CUDA runtime — GPU accelerated on Cloud Run
+# Модель запекается в образ при сборке → не нужен интернет в runtime
 # ─────────────────────────────────────────────────────────────
 
 FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
@@ -10,15 +10,21 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# HuggingFace cache inside container (ephemeral, model re-downloaded on cold start)
+# HuggingFace cache
 ENV HF_HOME=/app/.cache/huggingface
 ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
 ENV DIFFUSERS_CACHE=/app/.cache/huggingface
 
-# Model to load (can be overridden via Cloud Run env var)
+# Модель запечена в образ — runtime не качает из HF
 ENV MODEL_ID=runwayml/stable-diffusion-v1-5
+ENV MODEL_PATH=/app/models/stable-diffusion-v1-5
+ENV MODELS_DIR=/app/models
 
-# Port that Cloud Run expects
+# HF токен (опционально, для приватных моделей)
+# Передаётся как build arg чтобы не попасть в финальный слой
+ARG HF_TOKEN=""
+
+# Port
 ENV PORT=8080
 
 # ── System deps ──────────────────────────────────────────────
@@ -57,8 +63,28 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY main.py .
 COPY static/ ./static/
 
-# Create cache dir
-RUN mkdir -p /app/.cache/huggingface
+# Директории для пользовательских моделей / lora / vae / embeddings
+RUN mkdir -p /app/models/loras /app/models/vae /app/models/embeddings
+
+# ── Скачать SD v1.5 в образ при сборке ───────────────────────
+# Если HF_TOKEN передан (--build-arg HF_TOKEN=...), используем его
+RUN python3 - <<'PYEOF'
+import os, sys
+from huggingface_hub import snapshot_download
+token = os.environ.get("HF_TOKEN") or None
+print("[BUILD] Downloading runwayml/stable-diffusion-v1-5 into image...")
+try:
+    snapshot_download(
+        repo_id="runwayml/stable-diffusion-v1-5",
+        local_dir="/app/models/stable-diffusion-v1-5",
+        ignore_patterns=["*.msgpack", "*.ot", "flax_model*", "tf_model*", "rust_model*"],
+        token=token,
+    )
+    print("[BUILD] Model downloaded OK")
+except Exception as e:
+    print(f"[BUILD] WARNING: download failed: {e}", file=sys.stderr)
+    print("[BUILD] Container will start but model must be uploaded via UI", file=sys.stderr)
+PYEOF
 
 # ── Healthcheck ───────────────────────────────────────────────
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \

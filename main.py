@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────
 # Directories
 # ──────────────────────────────────────────────
-MODELS_DIR     = Path(os.getenv("MODELS_DIR", "/models"))
+MODELS_DIR     = Path(os.getenv("MODELS_DIR", "/app/models"))
 LORAS_DIR      = MODELS_DIR / "loras"
 VAE_DIR        = MODELS_DIR / "vae"
 EMBEDDINGS_DIR = MODELS_DIR / "embeddings"
