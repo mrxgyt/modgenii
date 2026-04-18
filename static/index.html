@@ -3,14 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Stable Diffusion v1.5 — веб-панель генерации изображений по текстовому описанию" />
-  <meta name="robots" content="noindex" />
+  <meta name="description" content="DreamForge — Stable Diffusion v1.5 веб-панель" />
   <title>DreamForge — AI Image Generator</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
 
-<!-- Background orbs -->
 <div class="bg-orbs" aria-hidden="true">
   <div class="orb orb-1"></div>
   <div class="orb orb-2"></div>
@@ -19,132 +17,280 @@
 
 <div class="app-wrapper">
 
-  <!-- ══════════ HEADER ══════════ -->
+  <!-- ════ HEADER ════ -->
   <header class="header">
     <div class="logo">
-      <div class="logo-icon" aria-hidden="true">✦</div>
+      <div class="logo-icon">✦</div>
       <span class="logo-text">Dream<span>Forge</span></span>
     </div>
-
+    <div class="header-center">
+      <div class="model-pill" id="modelPill" title="Текущая модель">
+        <span class="model-pill-icon">⬡</span>
+        <span id="currentModelName">—</span>
+      </div>
+      <div class="model-pill lora-pill" id="loraPill" style="display:none" title="Активный LoRA">
+        <span class="model-pill-icon">✧</span>
+        <span id="currentLoraName">—</span>
+      </div>
+      <div class="model-pill embed-pill" id="embedPill" style="display:none" title="Активные Embeddings">
+        <span class="model-pill-icon">◉</span>
+        <span id="embedPillText">—</span>
+      </div>
+    </div>
     <div class="status-badge" id="statusBadge" role="status" aria-live="polite">
       <div class="status-dot loading" id="statusDot"></div>
-      <span id="statusText">Загрузка модели...</span>
+      <span id="statusText">Загрузка...</span>
     </div>
   </header>
 
-  <!-- ══════════ MAIN ══════════ -->
+  <!-- ════ MAIN ════ -->
   <main class="main-content">
 
     <!-- ── SIDEBAR ── -->
-    <aside class="sidebar" aria-label="Параметры генерации">
+    <aside class="sidebar">
 
-      <!-- Prompt -->
-      <div class="card">
-        <div class="card-title">Описание</div>
-
-        <label for="promptInput">Что хотите сгенерировать?</label>
-        <textarea
-          id="promptInput"
-          placeholder="A futuristic city at sunset, cinematic lighting, 4k, ultra detailed..."
-          aria-label="Текстовый промпт"
-        ></textarea>
-
-        <label for="negativeInput" style="margin-top: 12px;">Негативный промпт</label>
-        <textarea
-          id="negativeInput"
-          style="min-height: 60px;"
-          placeholder="blurry, bad anatomy, bad hands, ugly..."
-          aria-label="Негативный промпт"
-        >blurry, bad anatomy, bad hands, extra limbs, deformed, ugly, lowres, text, watermark</textarea>
+      <!-- Tabs -->
+      <div class="tab-bar" role="tablist">
+        <button class="tab-btn active" id="tab-generate" role="tab" aria-selected="true"
+                onclick="switchTab('generate')">⚙ Генерация</button>
+        <button class="tab-btn" id="tab-models" role="tab" aria-selected="false"
+                onclick="switchTab('models')">⬡ Модели</button>
+        <button class="tab-btn" id="tab-addons" role="tab" aria-selected="false"
+                onclick="switchTab('addons')">✧ Дополнения</button>
       </div>
 
-      <!-- Size -->
-      <div class="card">
-        <div class="card-title">Размер</div>
-        <div class="size-grid" role="group" aria-label="Выбор размера изображения">
-          <button class="size-btn active" data-w="512" data-h="512" id="size-512x512">512 × 512</button>
-          <button class="size-btn" data-w="768" data-h="512" id="size-768x512">768 × 512</button>
-          <button class="size-btn" data-w="512" data-h="768" id="size-512x768">512 × 768</button>
-          <button class="size-btn" data-w="640" data-h="512" id="size-640x512">640 × 512</button>
-          <button class="size-btn" data-w="704" data-h="512" id="size-704x512">704 × 512</button>
-          <button class="size-btn" data-w="768" data-h="768" id="size-768x768">768 × 768</button>
+      <!-- ══ TAB: GENERATE ══ -->
+      <div class="tab-panel" id="panel-generate">
+
+        <div class="card">
+          <div class="card-title">Описание</div>
+          <label for="promptInput">Промпт</label>
+          <textarea id="promptInput"
+            placeholder="A futuristic city at sunset, cinematic lighting, 4k, ultra detailed..."></textarea>
+          <label for="negativeInput" style="margin-top:12px">Негативный промпт</label>
+          <textarea id="negativeInput" style="min-height:60px"
+            placeholder="blurry, bad anatomy...">blurry, bad anatomy, bad hands, extra limbs, deformed, ugly, lowres, text, watermark</textarea>
         </div>
-      </div>
 
-      <!-- Parameters -->
-      <div class="card">
-        <div class="card-title">Параметры</div>
-
-        <div class="range-wrap">
-          <div class="range-header">
-            <span class="range-label">Шаги (Steps)</span>
-            <span class="range-value" id="stepsVal">25</span>
+        <div class="card">
+          <div class="card-title">Размер</div>
+          <div class="size-grid" role="group">
+            <button class="size-btn active" data-w="512" data-h="512" id="size-512x512">512 × 512</button>
+            <button class="size-btn" data-w="768" data-h="512" id="size-768x512">768 × 512</button>
+            <button class="size-btn" data-w="512" data-h="768" id="size-512x768">512 × 768</button>
+            <button class="size-btn" data-w="640" data-h="512" id="size-640x512">640 × 512</button>
+            <button class="size-btn" data-w="704" data-h="512" id="size-704x512">704 × 512</button>
+            <button class="size-btn" data-w="768" data-h="768" id="size-768x768">768 × 768</button>
           </div>
-          <input type="range" id="stepsRange" min="1" max="50" value="25"
-                 aria-label="Количество шагов генерации" />
         </div>
 
-        <div class="range-wrap" style="margin-top: 14px;">
-          <div class="range-header">
-            <span class="range-label">CFG Scale</span>
-            <span class="range-value" id="cfgVal">7.5</span>
+        <div class="card">
+          <div class="card-title">Параметры</div>
+          <div class="range-wrap">
+            <div class="range-header">
+              <span class="range-label">Шаги (Steps)</span>
+              <span class="range-value" id="stepsVal">25</span>
+            </div>
+            <input type="range" id="stepsRange" min="1" max="50" value="25" />
           </div>
-          <input type="range" id="cfgRange" min="1" max="20" step="0.5" value="7.5"
-                 aria-label="CFG масштаб" />
-        </div>
-      </div>
-
-      <!-- Seed -->
-      <div class="card">
-        <div class="card-title">Сид (Seed)</div>
-        <div class="seed-row">
-          <div>
-            <label for="seedInput">-1 = случайный</label>
-            <input type="number" id="seedInput" value="-1" min="-1" max="2147483647"
-                   aria-label="Seed для генерации" />
+          <div class="range-wrap" style="margin-top:14px">
+            <div class="range-header">
+              <span class="range-label">CFG Scale</span>
+              <span class="range-value" id="cfgVal">7.5</span>
+            </div>
+            <input type="range" id="cfgRange" min="1" max="20" step="0.5" value="7.5" />
           </div>
-          <button class="btn-random" id="randomSeedBtn" title="Случайный seed" aria-label="Случайный seed">
-            🎲
-          </button>
         </div>
-      </div>
 
-      <!-- Generate -->
-      <button class="btn-generate" id="generateBtn" disabled
-              aria-label="Сгенерировать изображение">
-        <span class="btn-icon">✦</span>
-        <span id="generateBtnText">Ожидание модели...</span>
-      </button>
+        <div class="card">
+          <div class="card-title">Сид (Seed)</div>
+          <div class="seed-row">
+            <div>
+              <label for="seedInput">-1 = случайный</label>
+              <input type="number" id="seedInput" value="-1" min="-1" max="2147483647" />
+            </div>
+            <button class="btn-random" id="randomSeedBtn" title="Случайный seed">🎲</button>
+          </div>
+        </div>
+
+        <button class="btn-generate" id="generateBtn" disabled>
+          <span class="btn-icon">✦</span>
+          <span id="generateBtnText">Ожидание модели...</span>
+        </button>
+
+      </div><!-- /panel-generate -->
+
+      <!-- ══ TAB: MODELS ══ -->
+      <div class="tab-panel hidden" id="panel-models">
+
+        <!-- Upload model -->
+        <div class="card">
+          <div class="card-title">Загрузить модель</div>
+          <p class="hint-text">Поддерживаются: <code>.safetensors</code>, <code>.ckpt</code></p>
+          <div class="upload-zone" id="uploadZoneModel"
+               data-type="model" onclick="triggerUpload('model')">
+            <div class="upload-icon">⬆</div>
+            <div class="upload-label">Нажмите или перетащите файл</div>
+            <div class="upload-sub">Checkpoint модели SD v1.5 (~4 GB)</div>
+          </div>
+          <input type="file" id="fileInputModel" accept=".safetensors,.ckpt,.pt,.bin" hidden />
+          <div class="upload-progress hidden" id="uploadProgressModel">
+            <div class="upload-progress-bar" id="uploadBarModel"></div>
+            <span class="upload-progress-label" id="uploadLabelModel">0%</span>
+          </div>
+        </div>
+
+        <!-- Available models -->
+        <div class="card">
+          <div class="card-title">Доступные модели
+            <button class="btn-refresh" onclick="loadModelsList()" title="Обновить">↻</button>
+          </div>
+          <div class="file-list" id="modelsList">
+            <div class="file-list-empty">Нет файлов</div>
+          </div>
+        </div>
+
+      </div><!-- /panel-models -->
+
+      <!-- ══ TAB: ADDONS ══ -->
+      <div class="tab-panel hidden" id="panel-addons">
+
+        <!-- LoRA -->
+        <div class="card">
+          <div class="card-title addon-title">
+            <span>✧ LoRA</span>
+            <span class="addon-badge">Стили / персонажи</span>
+          </div>
+          <p class="hint-text">Адаптеры для изменения стиля или добавления персонажей. Сила: 0 = выключен, 1 = полный эффект.</p>
+
+          <div class="upload-zone upload-zone-sm" id="uploadZoneLora"
+               data-type="lora" onclick="triggerUpload('lora')">
+            <span>⬆ Загрузить LoRA</span>
+          </div>
+          <input type="file" id="fileInputLora" accept=".safetensors,.pt,.bin" hidden />
+          <div class="upload-progress hidden" id="uploadProgressLora">
+            <div class="upload-progress-bar" id="uploadBarLora"></div>
+            <span class="upload-progress-label" id="uploadLabelLora">0%</span>
+          </div>
+
+          <div class="range-wrap" style="margin-top:12px">
+            <div class="range-header">
+              <span class="range-label">Сила LoRA</span>
+              <span class="range-value" id="loraStrengthVal">0.8</span>
+            </div>
+            <input type="range" id="loraStrengthRange" min="0" max="1.5" step="0.05" value="0.8" />
+          </div>
+
+          <div class="file-list" id="lorasList" style="margin-top:12px">
+            <div class="file-list-empty">Нет LoRA файлов</div>
+          </div>
+
+          <button class="btn-sm btn-danger" id="unloadLoraBtn" style="margin-top:8px;display:none"
+                  onclick="unloadLora()">✕ Выгрузить LoRA</button>
+        </div>
+
+        <!-- VAE -->
+        <div class="card">
+          <div class="card-title addon-title">
+            <span>◈ VAE</span>
+            <span class="addon-badge">Цвета / детали</span>
+          </div>
+          <p class="hint-text">Заменяет декодер изображения. Улучшает насыщенность, детали и убирает артефакты.</p>
+          <p class="hint-text" style="margin-top:4px">Популярный: <strong>vae-ft-mse-840000</strong></p>
+
+          <div class="upload-zone upload-zone-sm" id="uploadZoneVae"
+               data-type="vae" onclick="triggerUpload('vae')">
+            <span>⬆ Загрузить VAE</span>
+          </div>
+          <input type="file" id="fileInputVae" accept=".safetensors,.pt,.bin" hidden />
+          <div class="upload-progress hidden" id="uploadProgressVae">
+            <div class="upload-progress-bar" id="uploadBarVae"></div>
+            <span class="upload-progress-label" id="uploadLabelVae">0%</span>
+          </div>
+
+          <div class="file-list" id="vaeList" style="margin-top:12px">
+            <div class="file-list-empty">Нет VAE файлов</div>
+          </div>
+
+          <button class="btn-sm btn-danger" id="unloadVaeBtn" style="margin-top:8px;display:none"
+                  onclick="unloadVae()">✕ Снять VAE</button>
+        </div>
+
+        <!-- Embeddings -->
+        <div class="card">
+          <div class="card-title addon-title">
+            <span>◉ Embeddings</span>
+            <span class="addon-badge">Textual Inversion</span>
+          </div>
+          <p class="hint-text">Textual Inversion — добавляют новые слова-токены в промпт. Можно активировать несколько одновременно.</p>
+          <p class="hint-text" style="margin-top:4px">Популярные: <strong>bad-hands-5</strong>, <strong>EasyNegative</strong>, <strong>ng_deepnegative</strong></p>
+
+          <div class="upload-zone upload-zone-sm" id="uploadZoneEmbedding"
+               data-type="embedding" onclick="triggerUpload('embedding')">
+            <span>⬆ Загрузить Embedding</span>
+          </div>
+          <input type="file" id="fileInputEmbedding" accept=".safetensors,.pt,.bin" hidden />
+          <div class="upload-progress hidden" id="uploadProgressEmbedding">
+            <div class="upload-progress-bar" id="uploadBarEmbedding"></div>
+            <span class="upload-progress-label" id="uploadLabelEmbedding">0%</span>
+          </div>
+
+          <div class="file-list" id="embeddingsList" style="margin-top:12px">
+            <div class="file-list-empty">Нет Embedding файлов</div>
+          </div>
+
+          <button class="btn-sm btn-danger" id="unloadAllEmbeddingsBtn" style="margin-top:8px;display:none"
+                  onclick="unloadAllEmbeddings()">✕ Выгрузить все Embeddings</button>
+        </div>
+
+        <!-- Info box -->
+        <div class="card info-card">
+          <div class="card-title">Что это такое?</div>
+          <div class="info-row">
+            <span class="info-icon">⬡</span>
+            <div><strong>Checkpoint / Модель</strong> — основа генерации. SD v1.5, реалистичные, аниме и т.д.</div>
+          </div>
+          <div class="info-row">
+            <span class="info-icon">✧</span>
+            <div><strong>LoRA</strong> — небольшой дополнительный файл (50-300 MB). Меняет стиль или добавляет персонажа.</div>
+          </div>
+          <div class="info-row">
+            <span class="info-icon">◈</span>
+            <div><strong>VAE</strong> — улучшает цвета и убирает «замыленность» в финальном изображении.</div>
+          </div>
+          <div class="info-row">
+            <span class="info-icon">◉</span>
+            <div><strong>Embedding</strong> — Textual Inversion. Добавляет токен в словарь промпта. Несколько одновременно. Используй в промпте: <code>&lt;название&gt;</code></div>
+          </div>
+        </div>
+
+      </div><!-- /panel-addons -->
 
     </aside>
 
     <!-- ── GALLERY ── -->
-    <section class="gallery-area" aria-label="Галерея сгенерированных изображений" id="galleryArea">
+    <section class="gallery-area" id="galleryArea" aria-label="Галерея">
 
-      <!-- Progress card -->
       <div class="progress-card" id="progressCard" aria-live="assertive">
-        <div class="spinner-ring" aria-hidden="true"></div>
+        <div class="spinner-ring"></div>
         <span class="progress-label" id="progressLabel">Генерация изображения...</span>
-        <div class="progress-bar-track" style="width: 100%;" role="progressbar" aria-label="Прогресс генерации">
+        <div class="progress-bar-track" role="progressbar">
           <div class="progress-bar-fill" id="progressFill"></div>
         </div>
       </div>
 
-      <!-- Empty state -->
       <div class="empty-state" id="emptyState">
-        <div class="empty-icon" aria-hidden="true">🎨</div>
+        <div class="empty-icon">🎨</div>
         <h2>Ваши шедевры появятся здесь</h2>
-        <p>Введите описание в поле слева и нажмите <strong>Сгенерировать</strong></p>
+        <p>Введите описание и нажмите <strong>Сгенерировать</strong><br/>
+           или зайдите во вкладку <strong>Модели</strong> чтобы загрузить свою модель</p>
       </div>
 
     </section>
-
   </main>
 </div>
 
-<!-- Toast container -->
 <div class="toast-container" id="toastContainer" aria-live="polite"></div>
-
 <script src="/app.js"></script>
 </body>
 </html>
