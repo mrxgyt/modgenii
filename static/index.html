@@ -150,6 +150,25 @@
           </div>
         </div>
 
+        <!-- Model Event Log -->
+        <div class="card log-card">
+          <div class="card-title">
+            <span>📋 Лог событий модели</span>
+            <div style="display:flex;gap:6px;align-items:center">
+              <span class="log-live-dot" id="logLiveDot"></span>
+              <button class="btn-refresh" onclick="loadEventLog()" title="Обновить">↻</button>
+              <button class="btn-sm btn-danger" style="padding:2px 8px;font-size:0.68rem"
+                      onclick="clearEventLog()">Очистить</button>
+            </div>
+          </div>
+          <div class="log-stream" id="logStream">
+            <div class="log-entry log-info">
+              <span class="log-ts">--:--:--</span>
+              <span class="log-msg">Ожидание событий...</span>
+            </div>
+          </div>
+        </div>
+
       </div><!-- /panel-models -->
 
       <!-- ══ TAB: ADDONS ══ -->

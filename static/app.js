@@ -15,7 +15,9 @@ const state = {
   activeModel:       null,
   activeLora:        null,
   activeVae:         null,
-  activeEmbeddings:  [],     // list of active embedding filenames
+  activeEmbeddings:  [],
+  logInterval:       null,   // поллинг лога
+  lastLogCount:      0,      // чтобы анимировать только новые записи
 };
 
 // ── DOM refs ───────────────────────────────────────────
@@ -92,7 +94,7 @@ function switchTab(name) {
   });
 
   // Lazy-load file lists when visiting tabs
-  if (name === 'models') loadModelsList();
+  if (name === 'models') { loadModelsList(); loadEventLog(); }
   if (name === 'addons') { loadLorasList(); loadVaeList(); loadEmbeddingsList(); }
 }
 
@@ -120,6 +122,9 @@ function bindSizeButtons() {
 function startStatusPolling() {
   checkStatus();
   state.pollInterval = setInterval(checkStatus, 3000);
+  // Поллинг лога каждые 2 секунды
+  if (state.logInterval) clearInterval(state.logInterval);
+  state.logInterval = setInterval(loadEventLog, 2000);
 }
 
 async function checkStatus() {
@@ -662,4 +667,49 @@ function renderEmbeddingList(container, files, activeList) {
       </div>`;
     container.appendChild(item);
   });
+}
+
+// ── Event Log ──────────────────────────────────────────────
+async function loadEventLog() {
+  const res = await safeFetch('/api/log');
+  if (!res) return;
+  renderLog(res.log);
+}
+
+function renderLog(entries) {
+  const container = $('logStream');
+  const liveDot   = $('logLiveDot');
+  if (!container) return;
+
+  if (entries.length === state.lastLogCount) return;
+  const isGrowing = entries.length > state.lastLogCount;
+  state.lastLogCount = entries.length;
+
+  if (liveDot) {
+    liveDot.classList.add('live');
+    setTimeout(() => liveDot && liveDot.classList.remove('live'), 600);
+  }
+
+  if (!entries.length) {
+    container.innerHTML = '<div class="log-entry log-info"><span class="log-ts">--:--:--</span><span class="log-level-icon">ℹ️</span><span class="log-msg">Ожидание событий...</span></div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  entries.forEach((e, idx) => {
+    const div = document.createElement('div');
+    div.className = `log-entry log-${e.level}`;
+    if (isGrowing && idx >= entries.length - 3) div.classList.add('log-new');
+    const icon = { info: 'ℹ️', ok: '✅', warn: '⚠️', error: '❌' }[e.level] || '•';
+    div.innerHTML = `<span class="log-ts">${escHtml(e.ts)}</span><span class="log-level-icon">${icon}</span><span class="log-msg">${escHtml(e.msg)}</span>`;
+    container.appendChild(div);
+  });
+
+  if (isGrowing) container.scrollTop = container.scrollHeight;
+}
+
+async function clearEventLog() {
+  await safeFetchPost('/api/log/clear', {});
+  state.lastLogCount = 0;
+  renderLog([]);
 }

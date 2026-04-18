@@ -54,6 +54,21 @@ device: str = "cuda" if torch.cuda.is_available() else "cpu"
 generation_lock = asyncio.Lock()
 model_load_lock = asyncio.Lock()
 
+# ── Event log (отображается на веб-панели) ──────────────────
+model_log: List[dict] = []          # [{ts, level, msg}, ...]
+MAX_LOG   = 120                     # хранить не более N записей
+
+
+def log_event(level: str, msg: str):
+    """level: info | ok | warn | error"""
+    entry = {"ts": time.strftime("%H:%M:%S"), "level": level, "msg": msg}
+    model_log.append(entry)
+    if len(model_log) > MAX_LOG:
+        model_log.pop(0)
+    log_fn = logger.info if level in ("info", "ok") else \
+              logger.warning if level == "warn" else logger.error
+    log_fn(msg)
+
 
 # ──────────────────────────────────────────────
 # Model loading helpers
@@ -63,20 +78,23 @@ def _build_pipeline(source: str, dtype) -> StableDiffusionPipeline:
     p = Path(source)
     if p.exists():
         if p.is_file():
-            logger.info(f"Loading from file: {source}")
+            size_gb = round(p.stat().st_size / 1e9, 2)
+            log_event("info", f"📂 Файл найден: {p.name} ({size_gb} GB)")
+            log_event("info", "⚙️  Десериализация весов модели (может занять несколько минут)...")
             return StableDiffusionPipeline.from_single_file(
                 str(p), torch_dtype=dtype,
                 safety_checker=None, requires_safety_checker=False,
             )
         else:
-            logger.info(f"Loading from directory: {source}")
+            log_event("info", f"📁 Директория модели: {p.name}")
+            log_event("info", "⚙️  Загрузка из директории...")
             return StableDiffusionPipeline.from_pretrained(
                 str(p), torch_dtype=dtype,
                 safety_checker=None, requires_safety_checker=False,
                 local_files_only=True,
             )
     else:
-        logger.info(f"Downloading from HuggingFace: {source}")
+        log_event("info", f"🌐 Скачивание из HuggingFace: {source}")
         return StableDiffusionPipeline.from_pretrained(
             source, torch_dtype=dtype,
             safety_checker=None, requires_safety_checker=False,
@@ -86,13 +104,15 @@ def _build_pipeline(source: str, dtype) -> StableDiffusionPipeline:
 
 def _apply_device(pipe: StableDiffusionPipeline) -> StableDiffusionPipeline:
     if device == "cuda":
+        vram = torch.cuda.get_device_properties(0).total_memory / 1e9
+        gpu_name = torch.cuda.get_device_name(0)
         pipe = pipe.to("cuda")
         pipe.enable_attention_slicing()
-        logger.info(f"GPU: {torch.cuda.get_device_name(0)}  "
-                    f"VRAM: {torch.cuda.get_device_properties(0).total_memory/1e9:.1f}GB")
+        log_event("ok", f"⚡ GPU: {gpu_name}  |  VRAM: {vram:.1f} GB")
+        log_event("ok", "✅ Attention slicing включён (экономия VRAM)")
     else:
         pipe.enable_attention_slicing(1)
-        logger.warning("CPU mode — generation will be slow!")
+        log_event("warn", "💻 CPU режим — генерация будет медленной (5-20 мин/изображение)")
     return pipe
 
 
@@ -100,22 +120,30 @@ def load_model(source: str = ""):
     global pipeline, model_status, model_error, current_model, active_lora, active_vae, active_embeddings
     model_status = "loading"
     model_error  = ""
+    t0 = time.time()
     try:
         if not source:
-            # Проверяем локальный MODEL_PATH
             if MODEL_PATH and Path(MODEL_PATH).exists():
                 source = MODEL_PATH
             elif MODEL_ID:
-                source = MODEL_ID  # скачать из HuggingFace
+                source = MODEL_ID
             else:
-                # Нет модели — ждём загрузки через веб-UI
                 model_status = "waiting"
-                logger.info("No model configured. Waiting for user to upload via web UI.")
+                log_event("info", "⏳ Ожидание — загрузите файл модели через вкладку «Модели»")
                 return
+
+        log_event("info", f"🚀 Начало загрузки: {Path(source).name}")
+        log_event("info", f"🖥️  Устройство: {'CUDA (GPU)' if device == 'cuda' else 'CPU'}")
+        log_event("info", f"🔢 Точность: {'float16 (быстрее)' if device == 'cuda' else 'float32 (CPU)'} ")
+
         dtype = torch.float16 if device == "cuda" else torch.float32
         pipe  = _build_pipeline(source, dtype)
+
+        log_event("info", "📅 Настройка планировщика DPMSolver++...")
         pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
-        pipe  = _apply_device(pipe)
+
+        log_event("info", f"📦 Перенос модели на {device.upper()}...")
+        pipe = _apply_device(pipe)
 
         pipeline          = pipe
         current_model     = str(source)
@@ -123,11 +151,14 @@ def load_model(source: str = ""):
         active_vae        = ""
         active_embeddings = []
         model_status      = "ready"
-        logger.info(f"Model ready: {source}")
+        elapsed = round(time.time() - t0, 1)
+        log_event("ok", f"✅ Модель готова! Время инициализации: {elapsed}с")
+        log_event("ok", f"🎨 Можно генерировать изображения")
     except Exception as exc:
         model_status = "error"
         model_error  = str(exc)
-        logger.error(f"Failed to load model: {exc}")
+        elapsed = round(time.time() - t0, 1)
+        log_event("error", f"❌ Ошибка загрузки ({elapsed}с): {exc}")
 
 
 @asynccontextmanager
@@ -201,6 +232,18 @@ async def get_status():
         "active_embeddings": active_embeddings,
         "error":             model_error if model_status == "error" else None,
     }
+
+
+@app.get("/api/log")
+async def get_log():
+    """Возвращает лог событий загрузки модели для отображения на веб-панели."""
+    return {"log": model_log}
+
+
+@app.post("/api/log/clear")
+async def clear_log():
+    model_log.clear()
+    return {"ok": True}
 
 
 # ──────────────────────────────────────────────
