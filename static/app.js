@@ -22,6 +22,7 @@ const state = {
 
 // ── DOM refs ───────────────────────────────────────────
 const $ = id => document.getElementById(id);
+const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 const dom = {
   statusDot:        $('statusDot'),
