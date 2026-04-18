@@ -83,17 +83,32 @@ document.addEventListener('DOMContentLoaded', () => {
   startStatusPolling();
 });
 
-// ── Tabs ───────────────────────────────────────────────
+// ── Tabs & Modal ─────────────────────────────────────────
 function switchTab(name) {
-  document.querySelectorAll('.tab-btn').forEach(b => {
-    b.classList.toggle('active', b.id === `tab-${name}`);
-    b.setAttribute('aria-selected', b.id === `tab-${name}`);
+  // We only have the 'generate' tab in the main view now
+}
+
+function openManagerModal() {
+  $('managerModal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  // Load initial content if not loaded
+  loadModelsList();
+  loadEventLog();
+}
+
+function closeManagerModal() {
+  $('managerModal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function switchModalTab(name) {
+  document.querySelectorAll('.modal-tabs .tab-btn').forEach(b => {
+    b.classList.toggle('active', b.id === `mtab-${name}`);
   });
-  document.querySelectorAll('.tab-panel').forEach(p => {
-    p.classList.toggle('hidden', p.id !== `panel-${name}`);
+  document.querySelectorAll('.modal-panel').forEach(p => {
+    p.classList.toggle('hidden', p.id !== `mpanel-${name}`);
   });
 
-  // Lazy-load file lists when visiting tabs
   if (name === 'models') { loadModelsList(); loadEventLog(); }
   if (name === 'addons') { loadLorasList(); loadVaeList(); loadEmbeddingsList(); }
 }

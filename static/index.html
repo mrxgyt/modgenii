@@ -37,9 +37,14 @@
         <span id="embedPillText">—</span>
       </div>
     </div>
-    <div class="status-badge" id="statusBadge" role="status" aria-live="polite">
-      <div class="status-dot loading" id="statusDot"></div>
-      <span id="statusText">Загрузка...</span>
+    <div class="header-right" style="display:flex;gap:12px;align-items:center;">
+      <button class="btn-manager" onclick="openManagerModal()" title="Загрузить модели и дополнения">
+        📦 Менеджер ресурсов
+      </button>
+      <div class="status-badge" id="statusBadge" role="status" aria-live="polite">
+        <div class="status-dot loading" id="statusDot"></div>
+        <span id="statusText">Загрузка...</span>
+      </div>
     </div>
   </header>
 
@@ -49,14 +54,9 @@
     <!-- ── SIDEBAR ── -->
     <aside class="sidebar">
 
-      <!-- Tabs -->
-      <div class="tab-bar" role="tablist">
-        <button class="tab-btn active" id="tab-generate" role="tab" aria-selected="true"
-                onclick="switchTab('generate')">⚙ Генерация</button>
-        <button class="tab-btn" id="tab-models" role="tab" aria-selected="false"
-                onclick="switchTab('models')">⬡ Модели</button>
-        <button class="tab-btn" id="tab-addons" role="tab" aria-selected="false"
-                onclick="switchTab('addons')">✧ Дополнения</button>
+      <!-- Tabs (Only Generation remains in sidebar) -->
+      <div class="tab-bar" style="display:none;" role="tablist">
+        <button class="tab-btn active" id="tab-generate" role="tab" aria-selected="true">⚙ Генерация</button>
       </div>
 
       <!-- ══ TAB: GENERATE ══ -->
@@ -120,8 +120,46 @@
 
       </div><!-- /panel-generate -->
 
+    </aside>
+
+    <!-- ── GALLERY ── -->
+    <section class="gallery-area" id="galleryArea" aria-label="Галерея">
+
+      <div class="progress-card" id="progressCard" aria-live="assertive">
+        <div class="spinner-ring"></div>
+        <span class="progress-label" id="progressLabel">Генерация изображения...</span>
+        <div class="progress-bar-track" role="progressbar">
+          <div class="progress-bar-fill" id="progressFill"></div>
+        </div>
+      </div>
+
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">🎨</div>
+        <h2>Ваши шедевры появятся здесь</h2>
+        <p>Введите описание и нажмите <strong>Сгенерировать</strong><br/>
+           или зайдите во вкладку <strong>Модели</strong> чтобы загрузить свою модель</p>
+      </div>
+
+    </section>
+  </main>
+</div><!-- /app-wrapper -->
+
+<!-- ════ MANAGER MODAL ════ -->
+<div id="managerModal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeManagerModal()"></div>
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>📦 Менеджер ресурсов</h2>
+      <button class="btn-close" onclick="closeManagerModal()" title="Закрыть">✕</button>
+    </div>
+    <div class="tab-bar modal-tabs">
+       <button class="tab-btn active" id="mtab-models" onclick="switchModalTab('models')">⬡ Модели</button>
+       <button class="tab-btn" id="mtab-addons" onclick="switchModalTab('addons')">✧ Дополнения</button>
+    </div>
+    <div class="modal-body scrollable">
+
       <!-- ══ TAB: MODELS ══ -->
-      <div class="tab-panel hidden" id="panel-models">
+      <div class="modal-panel" id="mpanel-models">
 
         <!-- Upload model -->
         <div class="card">
@@ -169,10 +207,10 @@
           </div>
         </div>
 
-      </div><!-- /panel-models -->
+      </div><!-- /mpanel-models -->
 
       <!-- ══ TAB: ADDONS ══ -->
-      <div class="tab-panel hidden" id="panel-addons">
+      <div class="modal-panel hidden" id="mpanel-addons">
 
         <!-- LoRA -->
         <div class="card">
@@ -283,31 +321,11 @@
           </div>
         </div>
 
-      </div><!-- /panel-addons -->
+      </div><!-- /mpanel-addons -->
 
-    </aside>
-
-    <!-- ── GALLERY ── -->
-    <section class="gallery-area" id="galleryArea" aria-label="Галерея">
-
-      <div class="progress-card" id="progressCard" aria-live="assertive">
-        <div class="spinner-ring"></div>
-        <span class="progress-label" id="progressLabel">Генерация изображения...</span>
-        <div class="progress-bar-track" role="progressbar">
-          <div class="progress-bar-fill" id="progressFill"></div>
-        </div>
-      </div>
-
-      <div class="empty-state" id="emptyState">
-        <div class="empty-icon">🎨</div>
-        <h2>Ваши шедевры появятся здесь</h2>
-        <p>Введите описание и нажмите <strong>Сгенерировать</strong><br/>
-           или зайдите во вкладку <strong>Модели</strong> чтобы загрузить свою модель</p>
-      </div>
-
-    </section>
-  </main>
-</div>
+    </div><!-- /modal-body -->
+  </div><!-- /modal-content -->
+</div><!-- /managerModal -->
 
 <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 <script src="/app.js"></script>
