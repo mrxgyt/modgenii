@@ -128,6 +128,7 @@ async function checkStatus() {
     if (!res.ok) return;
     const data = await res.json();
     updateStatusUI(data);
+    // Останавливаем поллинг только после успеха или ошибки
     if (data.status === 'ready' || data.status === 'error') {
       clearInterval(state.pollInterval);
       state.pollInterval = null;
@@ -139,11 +140,16 @@ function updateStatusUI(data) {
   const { statusDot, statusText } = dom;
   statusDot.className = 'status-dot';
 
-  if (data.status === 'loading') {
-    statusDot.classList.add('loading');
-    statusText.textContent = 'Загрузка модели...';
+  if (data.status === 'waiting') {
+    statusDot.classList.add('waiting');
+    statusText.textContent = '⬆ Загрузите модель';
     state.modelReady = false;
-    setGenerateEnabled(false, 'Ожидание модели...');
+    setGenerateEnabled(false, '⬆ Сначала загрузите модель → вкладка «Модели»');
+  } else if (data.status === 'loading') {
+    statusDot.classList.add('loading');
+    statusText.textContent = 'Инициализация модели...';
+    state.modelReady = false;
+    setGenerateEnabled(false, 'Загрузка модели...');
   } else if (data.status === 'ready') {
     statusDot.classList.add('ready');
     statusText.textContent = data.gpu_name ? `GPU: ${data.gpu_name}` : 'CPU режим';
@@ -405,8 +411,10 @@ async function uploadFile(type, file) {
       xhr.send(formData);
     });
 
-    // Refresh the relevant list
-    if (type === 'model')     loadModelsList();
+    // После загрузки модели — автоматически инициализируем её
+    if (type === 'model') {
+      await autoLoadModelFile(data.filename);
+    }
     if (type === 'lora')      loadLorasList();
     if (type === 'vae')       loadVaeList();
     if (type === 'embedding') loadEmbeddingsList();
@@ -415,6 +423,30 @@ async function uploadFile(type, file) {
     showToast('Ошибка загрузки: ' + err.message, 'error');
   } finally {
     setTimeout(() => progressWrap.classList.add('hidden'), 1500);
+  }
+}
+
+// ── Авто-запуск модели после загрузки файла ───────────────
+async function autoLoadModelFile(filename) {
+  showToast(`Модель загружена! Инициализация ${filename}...`, 'info', 10000);
+  // Берём небольшую паузу чтобы файл точно записался
+  await new Promise(r => setTimeout(r, 800));
+  try {
+    const res = await fetch('/api/models/load', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Ошибка');
+    }
+    showToast('Модель активирована! Готово к генерации ❆', 'success', 7000);
+  } catch (err) {
+    showToast('Не удалось активировать: ' + err.message, 'error');
+  } finally {
+    startStatusPolling();
+    loadModelsList();
   }
 }
 

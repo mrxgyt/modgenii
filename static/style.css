@@ -83,6 +83,7 @@ body {
   font-size:0.78rem; font-weight:500; white-space:nowrap; flex-shrink:0;
 }
 .status-dot { width:8px;height:8px;border-radius:50%;background:var(--text-muted);transition:var(--transition); }
+.status-dot.waiting { background:#60a5fa;animation:pulse-dot 2s ease-in-out infinite; }
 .status-dot.loading { background:var(--warning);animation:pulse-dot 1.2s ease-in-out infinite; }
 .status-dot.ready   { background:var(--success);box-shadow:0 0 8px var(--success); }
 .status-dot.error   { background:var(--error); }

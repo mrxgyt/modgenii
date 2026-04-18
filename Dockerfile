@@ -1,6 +1,6 @@
 # ─────────────────────────────────────────────────────────────
 # Dockerfile — DreamForge (Stable Diffusion v1.5 Web Panel)
-# Модель запекается в образ при сборке → не нужен интернет в runtime
+# Лёгкий образ: модель загружается через веб-панель пользователем
 # ─────────────────────────────────────────────────────────────
 
 FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
@@ -15,14 +15,11 @@ ENV HF_HOME=/app/.cache/huggingface
 ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
 ENV DIFFUSERS_CACHE=/app/.cache/huggingface
 
-# Модель запечена в образ — runtime не качает из HF
-ENV MODEL_ID=runwayml/stable-diffusion-v1-5
-ENV MODEL_PATH=/app/models/stable-diffusion-v1-5
+# Пустые значения — контейнер стартует без модели,
+# ждёт загрузки через веб-UI
+ENV MODEL_PATH=""
+ENV MODEL_ID=""
 ENV MODELS_DIR=/app/models
-
-# HF токен (опционально, для приватных моделей)
-# Передаётся как build arg чтобы не попасть в финальный слой
-ARG HF_TOKEN=""
 
 # Port
 ENV PORT=8080
@@ -63,31 +60,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY main.py .
 COPY static/ ./static/
 
-# Директории для пользовательских моделей / lora / vae / embeddings
+# Директории для пользовательских файлов (volume mount point)
 RUN mkdir -p /app/models/loras /app/models/vae /app/models/embeddings
-
-# ── Скачать SD v1.5 в образ при сборке ───────────────────────
-# Если HF_TOKEN передан (--build-arg HF_TOKEN=...), используем его
-RUN python3 - <<'PYEOF'
-import os, sys
-from huggingface_hub import snapshot_download
-token = os.environ.get("HF_TOKEN") or None
-print("[BUILD] Downloading runwayml/stable-diffusion-v1-5 into image...")
-try:
-    snapshot_download(
-        repo_id="runwayml/stable-diffusion-v1-5",
-        local_dir="/app/models/stable-diffusion-v1-5",
-        ignore_patterns=["*.msgpack", "*.ot", "flax_model*", "tf_model*", "rust_model*"],
-        token=token,
-    )
-    print("[BUILD] Model downloaded OK")
-except Exception as e:
-    print(f"[BUILD] WARNING: download failed: {e}", file=sys.stderr)
-    print("[BUILD] Container will start but model must be uploaded via UI", file=sys.stderr)
-PYEOF
+RUN mkdir -p /app/.cache/huggingface
 
 # ── Healthcheck ───────────────────────────────────────────────
-HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:${PORT}/health || exit 1
 
 # ── Startup ───────────────────────────────────────────────────
@@ -97,4 +75,4 @@ CMD ["python3", "-m", "uvicorn", "main:app", \
      "--host", "0.0.0.0", \
      "--port", "8080", \
      "--workers", "1", \
-     "--timeout-keep-alive", "300"]
+     "--timeout-keep-alive", "600"]

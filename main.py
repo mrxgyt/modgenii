@@ -44,7 +44,7 @@ HF_TOKEN    = os.getenv("HF_TOKEN", None)
 UPLOAD_CHUNK = 1024 * 1024  # 1 MB
 
 pipeline:          Optional[StableDiffusionPipeline] = None
-model_status:      str = "loading"
+model_status:      str = "waiting"   # waiting | loading | ready | error
 model_error:       str = ""
 current_model:     str = ""
 active_lora:       str = ""
@@ -102,7 +102,16 @@ def load_model(source: str = ""):
     model_error  = ""
     try:
         if not source:
-            source = MODEL_PATH if (MODEL_PATH and Path(MODEL_PATH).exists()) else MODEL_ID
+            # Проверяем локальный MODEL_PATH
+            if MODEL_PATH and Path(MODEL_PATH).exists():
+                source = MODEL_PATH
+            elif MODEL_ID:
+                source = MODEL_ID  # скачать из HuggingFace
+            else:
+                # Нет модели — ждём загрузки через веб-UI
+                model_status = "waiting"
+                logger.info("No model configured. Waiting for user to upload via web UI.")
+                return
         dtype = torch.float16 if device == "cuda" else torch.float32
         pipe  = _build_pipeline(source, dtype)
         pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
@@ -123,8 +132,16 @@ def load_model(source: str = ""):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, load_model, "")
+    # Запускаем авто-загрузку только если модель уже есть локально или задан MODEL_ID
+    if MODEL_PATH and Path(MODEL_PATH).exists():
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, load_model, MODEL_PATH)
+    elif MODEL_ID:
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, load_model, MODEL_ID)
+    else:
+        logger.info("No MODEL_PATH or MODEL_ID set — waiting for user to upload a model.")
+        # model_status остаётся 'waiting'
     yield
 
 app = FastAPI(title="DreamForge", lifespan=lifespan)
@@ -174,7 +191,7 @@ async def health():
 @app.get("/api/status")
 async def get_status():
     return {
-        "status":            model_status,
+        "status":            model_status,   # waiting | loading | ready | error
         "device":            device,
         "gpu_available":     torch.cuda.is_available(),
         "gpu_name":          torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
